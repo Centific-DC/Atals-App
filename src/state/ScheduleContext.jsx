@@ -5,7 +5,7 @@ import { fromBookingRow } from '../lib/oneforma/actions.ts'
 import { READ_URL, storageKey } from '../lib/oneforma/config.ts'
 import { QA_STAGE_LABEL } from '../lib/oneforma/events.ts'
 import { fetchRead } from '../lib/oneforma/readFlow.ts'
-import { OUTCOME_LABEL, TEMPLATE_LABEL } from '../lib/contact.ts'
+import { OUTCOME_LABEL, STAGE_LABEL, TEMPLATE_LABEL, cleanContacts } from '../lib/contact.ts'
 import { nowIso } from '../lib/oneforma/time.ts'
 import { useToast } from '../motion/Toast.jsx'
 import { useAuth } from './AuthContext.tsx'
@@ -54,6 +54,20 @@ function saveSessions(sessions) {
   }
 }
 
+// Availability calls made before a participant is booked. Kept in this browser until
+// Atlas_Participants has a column for them; copied onto the booking when it is made,
+// from where the action flow saves them for everyone.
+const PREBOOK_KEY = storageKey('atlas_prebook_contacts_v1')
+function loadPrebook() {
+  try {
+    const saved = JSON.parse(window.localStorage.getItem(PREBOOK_KEY) ?? '{}')
+    if (!saved || typeof saved !== 'object') return {}
+    return Object.fromEntries(Object.entries(saved).map(([pid, list]) => [pid, cleanContacts(list)]))
+  } catch {
+    return {}
+  }
+}
+
 /** Refresh from SharePoint when the tab comes back, at most this often. */
 const REFRESH_MS = 30000
 
@@ -72,6 +86,12 @@ const stamp = (type, text) => ({ at: new Date().toISOString(), type, text })
 
 export function ScheduleProvider({ children }) {
   const [sessions, setSessions] = useState(loadSessions)
+  const [prebook, setPrebook] = useState(loadPrebook)
+  useEffect(() => {
+    try { window.localStorage.setItem(PREBOOK_KEY, JSON.stringify(prebook)) } catch { /* lasts for this tab */ }
+  }, [prebook])
+  const prebookRef = useRef(prebook)
+  prebookRef.current = prebook
   // Which booking the details panel shows: { id, mode } or { date } for a day's list.
   const [panel, setPanel] = useState(null)
   // Right-click menu on a booking: { id, x, y }.
@@ -139,7 +159,9 @@ export function ScheduleProvider({ children }) {
   // Emails are never sent with a change. Each change records what it can offer
   // (`offerEmail`); the booking drawer shows a button per recipient, and a click sends it.
   const addSession = useCallback((session) => {
-    const created = { id: newId(), ...session, history: [stamp('created', 'Booked')] }
+    // Availability calls made before booking travel with the booking from now on.
+    const before = session.participantId ? prebookRef.current[session.participantId] ?? [] : []
+    const created = { id: newId(), ...session, ...(before.length ? { contacts: before } : {}), history: [stamp('created', 'Booked')] }
     current.current = [...current.current, created]
     setSessions(current.current)
     record('booking.created', created, { event: 'booking.created', offerEmail: { template: 'booking-confirmed', to: BOTH } })
@@ -187,13 +209,37 @@ export function ScheduleProvider({ children }) {
       ...(note?.trim() ? { note: note.trim() } : {}),
     }
     const text = contact.kind === 'call'
-      ? `Call: ${OUTCOME_LABEL[contact.outcome]}`
+      ? `${STAGE_LABEL[contact.stage ?? 'confirmation']} call: ${OUTCOME_LABEL[contact.outcome]}`
       : `${TEMPLATE_LABEL[contact.template] ?? 'Booking'} email sent to participant`
     const next = apply(id, { contacts: [...(before.contacts ?? []), entry] },
       { ...stamp('contact', text), ...(entry.note ? { reason: entry.note } : {}) })
     if (next) record('booking.updated', next, { label: contact.kind === 'call' ? 'Call logged' : 'Email logged' })
     return next
   }, [apply, record, user?.email, user?.shortName, user?.displayName])
+
+  // Availability call to a participant who isn't booked yet. Returns an undo.
+  const logParticipantContact = useCallback((participantId, { outcome, note }) => {
+    const entry = {
+      id: `c-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 5)}`,
+      kind: 'call', stage: 'availability', outcome, at: nowIso(),
+      by: user?.email ?? '', byName: user?.shortName || user?.displayName || '',
+      ...(note?.trim() ? { note: note.trim() } : {}),
+    }
+    setPrebook((all) => ({ ...all, [participantId]: [...(all[participantId] ?? []), entry] }))
+    return () => setPrebook((all) => ({ ...all, [participantId]: (all[participantId] ?? []).filter((c) => c.id !== entry.id) }))
+  }, [user?.email, user?.shortName, user?.displayName])
+
+  // Every availability call for a participant: this browser's plus any saved on their bookings.
+  const participantContacts = useCallback((participantId) => {
+    if (!participantId) return []
+    const byId = new Map()
+    for (const c of prebook[participantId] ?? []) byId.set(c.id, c)
+    for (const s of sessions) {
+      if (s.participantId !== participantId) continue
+      for (const c of s.contacts ?? []) if (c.stage === 'availability') byId.set(c.id, c)
+    }
+    return [...byId.values()]
+  }, [prebook, sessions])
 
   // Send one recipient an email about the booking (first send or again). Nothing about
   // the booking changes; a participant email is also written to the contact trace.
@@ -205,7 +251,7 @@ export function ScheduleProvider({ children }) {
       resend: { to, template },
       label: `Email ${again ? 'resent' : 'sent'} to ${to}`,
     })
-    if (to === 'participant' && sent.status !== 'rejected') logContact(id, { kind: 'email', template })
+    if (to === 'participant' && sent.status !== 'rejected') logContact(id, { kind: 'email', stage: 'confirmation', template })
     return sent
   }, [record, logContact])
 
@@ -320,11 +366,11 @@ export function ScheduleProvider({ children }) {
   const startDraft = useCallback((participantId) => setDraftState({ participantId, key: Date.now() }), [])
 
   const value = useMemo(() => ({
-    sessions, addSession, updateSession, assignModerator, resendEmail, logContact, setRouteMiles, rescheduleSession, cancelSession, startSession, completeSession,
+    sessions, addSession, updateSession, assignModerator, resendEmail, logContact, logParticipantContact, participantContacts, setRouteMiles, rescheduleSession, cancelSession, startSession, completeSession,
     interruptSession, logRecording, setQa, restoreSession, removeSession, checkStep,
     panel, openBooking, openDay, closePanel, menu, openMenu, closeMenu,
     note, setNote, clearNote, triggerRef, draft, startDraft,
-  }), [draft, startDraft, sessions, addSession, updateSession, assignModerator, resendEmail, logContact, setRouteMiles, rescheduleSession, cancelSession, startSession, completeSession,
+  }), [draft, startDraft, sessions, addSession, updateSession, assignModerator, resendEmail, logContact, logParticipantContact, participantContacts, setRouteMiles, rescheduleSession, cancelSession, startSession, completeSession,
     interruptSession, logRecording, setQa, restoreSession, removeSession, checkStep,
     panel, openBooking, openDay, closePanel, menu, openMenu, closeMenu, note, clearNote])
   return <ScheduleContext.Provider value={value}>{children}</ScheduleContext.Provider>

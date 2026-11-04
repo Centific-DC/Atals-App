@@ -1,3 +1,4 @@
+import AvailabilityContact, { AvailabilityLine } from '../contact/AvailabilityContact.jsx'
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import maplibregl from 'maplibre-gl'
@@ -771,6 +772,7 @@ function QueuePanel({ shown, total, onClose }) {
                 <span className="atlas-queue-text">
                   <span className="atlas-queue-name">{p.name}</span>
                   <span className="atlas-queue-meta">{p.address.split(',')[0]} · {STATUS_TEXT[p.status]}</span>
+                  {p.status === 'open' && <AvailabilityLine participantId={p.id} />}
                 </span>
                 <span className="atlas-queue-dist">{participantMiles(p)}</span>
               </button>
@@ -977,6 +979,7 @@ function InfoTile({ participant: p, trip, onRoute, onDismiss, onBook, nearby = n
           </button>
         )}
       </div>
+      {!s && <div className="atlas-map-info-avail"><AvailabilityContact participant={p} compact /></div>}
       {nearby && <NearbyList anchor={p} nearby={nearby} loading={nearbyLoading} onBook={onBookNearby} onPick={onPickNearby} />}
       {(p.phone || p.email) && (
         <div className="atlas-map-info-contact">

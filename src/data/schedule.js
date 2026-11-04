@@ -58,6 +58,7 @@ export const SESSIONS = [
     phone: '(425) 555-0151',
     // Sample contact trace (lib/contact.ts): emailed, then reached by phone.
     contacts: [
+      { id: 'c-s4-0', kind: 'call', stage: 'availability', outcome: 'available', at: '2024-10-21T18:30:00Z', by: '', byName: 'Dana', note: 'Free Thursday after 4' },
       { id: 'c-s4-1', kind: 'email', template: 'booking-confirmed', at: '2024-10-22T17:05:00Z', by: '', byName: 'Dana' },
       { id: 'c-s4-2', kind: 'call', outcome: 'reached', at: '2024-10-23T21:40:00Z', by: '', byName: 'Dana', note: 'Confirmed, gate code 4417' },
     ],
@@ -82,7 +83,7 @@ export const SESSIONS = [
     id: 's9', date: '2024-10-25', start: '10:00', end: '11:30', status: 'booked', moderator: seedModerator(8),
     name: 'Lena Fischer', short: 'L. Fischer', summary: 'Lena Fischer', location: '1605 125th Ave NE',
     participantId: '1836058700010279', requestId: '712000010279',
-    contacts: [{ id: 'c-s9-1', kind: 'email', template: 'booking-confirmed', at: '2024-10-23T16:00:00Z', by: '', byName: 'Dana' }],
+    contacts: [{ id: 'c-s9-0', kind: 'call', stage: 'availability', outcome: 'available', at: '2024-10-22T17:00:00Z', by: '', byName: 'Dana' }, { id: 'c-s9-1', kind: 'email', template: 'booking-confirmed', at: '2024-10-23T16:00:00Z', by: '', byName: 'Dana' }],
   },
   {
     id: 's10', date: '2024-10-25', start: '14:00', end: '15:00', status: 'booked', moderator: seedModerator(9),

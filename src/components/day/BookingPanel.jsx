@@ -14,6 +14,7 @@ import { RANGE_OPTIONS, rangeText, useParticipants, useQueue, withinRange } from
 import { participantMiles } from '../../lib/geo.js'
 import { bookingRouteMiles } from '../../lib/mileage.js'
 import { PlusIcon } from '../Icons.jsx'
+import AvailabilityContact from '../contact/AvailabilityContact.jsx'
 import QueueSyncStatus from '../sync/QueueSyncStatus.jsx'
 import { useModerators } from '../../state/ModeratorContext.jsx'
 import { useRole } from '../../state/RoleContext.jsx'
@@ -212,6 +213,11 @@ export default function BookingPanel({ participant = null, onBooked = null, pres
               Widen to {widenTo == null ? 'any distance' : `${widenTo} mi`}
             </button>
           </span>
+        )}
+        {!participant && form.participantId && (
+          <div key={form.participantId} className="atlas-booking-avail atlas-swap-in">
+            <AvailabilityContact participant={queue.find((q) => q.id === form.participantId)} compact />
+          </div>
         )}
         <TextField label="PARTICIPANT" value={form.name} placeholder="Full name" onChange={(v) => set({ name: v, participantId: '', requestId: '' })} />
         <TextField label="LOCATION" value={form.location} placeholder="Address or meeting link" onChange={(v) => set({ location: v })} />
