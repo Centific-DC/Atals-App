@@ -4,6 +4,7 @@ import { timeRange } from '../../lib/dates.js'
 import { useModerators } from '../../state/ModeratorContext.jsx'
 import { StatusDot } from '../StatusLegend.jsx'
 import { useBookingTriggers } from '../../state/ScheduleContext.jsx'
+import ContactChip from '../contact/ContactChip.jsx'
 
 export const HOUR_HEIGHT = 5 // rem per hour row, matches .atlas-week-slot
 
@@ -40,6 +41,7 @@ export default function CalendarEvent({ session, lane = 0, lanes = 1, style }) {
       <div className="atlas-week-event-status">
         <StatusDot status={session.status} pulse={live} />
         <span key={session.status} className="atlas-week-event-label atlas-status-line">{STATUS[session.status].label}</span>
+        <ContactChip session={session} compact />
       </div>
       <div className="atlas-week-event-client">{session.short}</div>
       <div className="atlas-week-event-time">{when}</div>

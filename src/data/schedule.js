@@ -55,21 +55,34 @@ export const SESSIONS = [
     id: 's4', date: '2024-10-24', start: '16:30', end: '17:45', status: 'booked', moderator: seedModerator(5),
     name: 'Marcus Thorne', short: 'M. Thorne', summary: 'Marcus Thorne', location: '3915 139th Ave NE',
     participantId: '1836058700010251', requestId: '712000010251',
+    phone: '(425) 555-0151',
+    // Sample contact trace (lib/contact.ts): emailed, then reached by phone.
+    contacts: [
+      { id: 'c-s4-1', kind: 'email', template: 'booking-confirmed', at: '2024-10-22T17:05:00Z', by: '', byName: 'Dana' },
+      { id: 'c-s4-2', kind: 'call', outcome: 'reached', at: '2024-10-23T21:40:00Z', by: '', byName: 'Dana', note: 'Confirmed, gate code 4417' },
+    ],
   },
   {
     id: 's8', date: '2024-10-24', start: '17:00', end: '18:00', status: 'booked', moderator: seedModerator(6),
     name: 'Ethan Brooks', short: 'E. Brooks', summary: 'Ethan Brooks', location: '3374 143rd Ave NE',
     participantId: '1836058700010370', requestId: '712000010370',
+    phone: '(425) 555-0170',
+    contacts: [
+      { id: 'c-s8-1', kind: 'email', template: 'booking-confirmed', at: '2024-10-22T18:10:00Z', by: '', byName: 'Dana' },
+      { id: 'c-s8-2', kind: 'call', outcome: 'voicemail', at: '2024-10-24T16:15:00Z', by: '', byName: 'Dana' },
+    ],
   },
   {
     id: 's5', date: '2024-10-24', start: '19:00', end: '20:30', status: 'booked', moderator: seedModerator(7),
     name: 'Dr. Alana Rivera', short: 'A. Rivera', summary: 'Dr. Rivera', location: '16257 NE 35th St',
     participantId: '1836058700010258', requestId: '712000010258',
+    phone: '(425) 555-0158',
   },
   {
     id: 's9', date: '2024-10-25', start: '10:00', end: '11:30', status: 'booked', moderator: seedModerator(8),
     name: 'Lena Fischer', short: 'L. Fischer', summary: 'Lena Fischer', location: '1605 125th Ave NE',
     participantId: '1836058700010279', requestId: '712000010279',
+    contacts: [{ id: 'c-s9-1', kind: 'email', template: 'booking-confirmed', at: '2024-10-23T16:00:00Z', by: '', byName: 'Dana' }],
   },
   {
     id: 's10', date: '2024-10-25', start: '14:00', end: '15:00', status: 'booked', moderator: seedModerator(9),

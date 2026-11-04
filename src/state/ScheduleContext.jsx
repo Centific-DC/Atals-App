@@ -5,6 +5,7 @@ import { fromBookingRow } from '../lib/oneforma/actions.ts'
 import { READ_URL, storageKey } from '../lib/oneforma/config.ts'
 import { QA_STAGE_LABEL } from '../lib/oneforma/events.ts'
 import { fetchRead } from '../lib/oneforma/readFlow.ts'
+import { OUTCOME_LABEL, TEMPLATE_LABEL } from '../lib/contact.ts'
 import { nowIso } from '../lib/oneforma/time.ts'
 import { useToast } from '../motion/Toast.jsx'
 import { useAuth } from './AuthContext.tsx'
@@ -173,16 +174,40 @@ export function ScheduleProvider({ children }) {
     }
   }, [apply, record])
 
-  // Send one recipient an email about the booking (first send or again). Nothing about the booking changes.
+  // Contact trace: log an email sent or a call made to the participant, with when and
+  // who. Saved on the booking (HistoryJson) like any edit, so every Scheduler sees it.
+  const logContact = useCallback((id, contact) => {
+    const before = current.current.find((s) => s.id === id)
+    if (!before) return null
+    const { note, ...rest } = contact
+    const entry = {
+      id: `c-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 5)}`,
+      at: nowIso(), by: user?.email ?? '', byName: user?.shortName || user?.displayName || '',
+      ...rest,
+      ...(note?.trim() ? { note: note.trim() } : {}),
+    }
+    const text = contact.kind === 'call'
+      ? `Call: ${OUTCOME_LABEL[contact.outcome]}`
+      : `${TEMPLATE_LABEL[contact.template] ?? 'Booking'} email sent to participant`
+    const next = apply(id, { contacts: [...(before.contacts ?? []), entry] },
+      { ...stamp('contact', text), ...(entry.note ? { reason: entry.note } : {}) })
+    if (next) record('booking.updated', next, { label: contact.kind === 'call' ? 'Call logged' : 'Email logged' })
+    return next
+  }, [apply, record, user?.email, user?.shortName, user?.displayName])
+
+  // Send one recipient an email about the booking (first send or again). Nothing about
+  // the booking changes; a participant email is also written to the contact trace.
   const resendEmail = useCallback((id, to, template, { again = false } = {}) => {
     const booking = current.current.find((s) => s.id === id)
     if (!booking) return null
-    return record('email.resend', booking, {
+    const sent = record('email.resend', booking, {
       notify: { [to]: true, template },
       resend: { to, template },
       label: `Email ${again ? 'resent' : 'sent'} to ${to}`,
     })
-  }, [record])
+    if (to === 'participant' && sent.status !== 'rejected') logContact(id, { kind: 'email', template })
+    return sent
+  }, [record, logContact])
 
   // Admin correction of a booking's round-trip miles (billing); saved like any edit.
   const setRouteMiles = useCallback((id, miles) => {
@@ -295,11 +320,11 @@ export function ScheduleProvider({ children }) {
   const startDraft = useCallback((participantId) => setDraftState({ participantId, key: Date.now() }), [])
 
   const value = useMemo(() => ({
-    sessions, addSession, updateSession, assignModerator, resendEmail, setRouteMiles, rescheduleSession, cancelSession, startSession, completeSession,
+    sessions, addSession, updateSession, assignModerator, resendEmail, logContact, setRouteMiles, rescheduleSession, cancelSession, startSession, completeSession,
     interruptSession, logRecording, setQa, restoreSession, removeSession, checkStep,
     panel, openBooking, openDay, closePanel, menu, openMenu, closeMenu,
     note, setNote, clearNote, triggerRef, draft, startDraft,
-  }), [draft, startDraft, sessions, addSession, updateSession, assignModerator, resendEmail, setRouteMiles, rescheduleSession, cancelSession, startSession, completeSession,
+  }), [draft, startDraft, sessions, addSession, updateSession, assignModerator, resendEmail, logContact, setRouteMiles, rescheduleSession, cancelSession, startSession, completeSession,
     interruptSession, logRecording, setQa, restoreSession, removeSession, checkStep,
     panel, openBooking, openDay, closePanel, menu, openMenu, closeMenu, note, clearNote])
   return <ScheduleContext.Provider value={value}>{children}</ScheduleContext.Provider>

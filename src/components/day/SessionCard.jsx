@@ -5,6 +5,7 @@ import { useModerators } from '../../state/ModeratorContext.jsx'
 import { PinIcon } from '../Icons.jsx'
 import { StatusDot } from '../StatusLegend.jsx'
 import { useBookingTriggers } from '../../state/ScheduleContext.jsx'
+import ContactChip from '../contact/ContactChip.jsx'
 
 // Status styling lives in index.css under .atlas-session-card--{status}.
 const CARD_CLASS = {
@@ -50,6 +51,7 @@ export default function SessionCard({ session, style, selected = false, onShowLi
         <div className="atlas-session-status">
           <StatusDot status={session.status} pulse={live} />
           <span key={session.status} className="atlas-session-status-label atlas-status-line">{STATUS[session.status].label}</span>
+          <ContactChip session={session} />
         </div>
         <h3 className="atlas-session-client">{session.name}</h3>
         <div className="atlas-session-meta">

@@ -5,6 +5,7 @@ import usePresence from '../../motion/usePresence.js'
 import { returnFocus } from '../../motion/useFocusTrap.js'
 import { clock12 } from '../../lib/dates.js'
 import { useSchedule } from '../../state/ScheduleContext.jsx'
+import { useRole } from '../../state/RoleContext.jsx'
 
 // Right-click menu on a booking, as in Twilight's calendar: View is always there,
 // changes are hidden once a booking is completed or cancelled. It pops from the
@@ -19,6 +20,7 @@ export default function BookingMenu() {
   const [pos, setPos] = useState(null)
   const { mounted, state, onAnimationEnd } = usePresence(Boolean(menu), MS.menuExit)
   const restore = useRef(true)
+  const { canBook } = useRole()
 
   useEffect(() => { if (menu) restore.current = true }, [menu])
 
@@ -72,6 +74,7 @@ export default function BookingMenu() {
   const locked = isLocked(session.status)
   const items = [
     { mode: 'view', label: 'View booking' },
+    ...(canBook && !locked ? [{ mode: 'call', label: 'Log call' }] : []),
     ...(locked ? [] : [{ mode: 'edit', label: 'Edit booking' }]),
     ...(session.status === 'booked' ? [{ mode: 'reschedule', label: 'Reschedule' }] : []),
     ...(locked ? [] : [{ mode: 'cancel', label: 'Cancel booking', danger: true }]),

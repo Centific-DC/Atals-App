@@ -5,6 +5,7 @@
 import { STATUS } from '../data/schedule.js'
 import { UNASSIGNED, firstName } from '../data/moderators.js'
 import { HOME_TYPES } from './home.js'
+import { CONTACT_FILTER_LABEL, CONTACT_FILTER_TITLE, CONTACT_STATES, contactStateOf } from './contact.ts'
 
 // Status is fixed; Moderator lists Unassigned, then the active moderators (useFilterGroups);
 // Home type is the participant's OneForma answer (the session's value comes from useHomeOf).
@@ -27,6 +28,12 @@ export const filterGroups = (moderators) => [
     label: 'Home type',
     options: HOME_TYPES.map((t) => ({ id: t.id, label: t.label, title: t.full })),
   },
+  {
+    // Booked sessions only: has the participant been emailed or called since it was booked?
+    id: 'contact',
+    label: 'Contact',
+    options: CONTACT_STATES.map((id) => ({ id, label: CONTACT_FILTER_LABEL[id], title: CONTACT_FILTER_TITLE[id] })),
+  },
 ]
 
 export const optionLabel = (groups, group, value) =>
@@ -43,8 +50,12 @@ const byGroup = (picks) => {
 
 // A session with moderator '' is Unassigned. A Month history chip ({ status }) has no
 // moderator at all, so any moderator pick (Unassigned included) leaves it out.
-const valueOf = (item, group) =>
-  group === 'moderator' && item.moderator === '' ? UNASSIGNED : item[group]
+// Contact is worked out from the booking's trace (lib/contact.ts), not stored.
+const valueOf = (item, group) => {
+  if (group === 'moderator' && item.moderator === '') return UNASSIGNED
+  if (group === 'contact') return contactStateOf(item)
+  return item[group]
+}
 
 // `item` is a session (with `home` resolved to a key), or a Month history chip ({ status })
 // with no moderator or home, which any moderator or home pick leaves out.

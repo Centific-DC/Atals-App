@@ -246,6 +246,9 @@ export interface BookingRow {
   /** Atlas's own activity log for the booking, kept as JSON text. */
   historyJson: string
   updatedAt: string
+  /** Read flow only (pa-bot v4.2): the last participant email the flow sent. */
+  participantEmailStatus?: string | null
+  participantEmailAt?: string | null
 }
 
 export type ActionKind =

@@ -26,6 +26,9 @@ import { QA_STAGE_LABEL, bookingRef, isLinked } from '../../lib/oneforma/events.
 import { checklistUrlFor } from '../../lib/oneforma/actions.ts'
 import { EMAIL_TEXT, EMAIL_TONE, TONE_CLASS, lastEmail, offeredEmails } from '../../lib/oneforma/outboxStatus.ts'
 import { useSync } from '../../state/SyncContext.tsx'
+import Collapse from '../../motion/Collapse.jsx'
+import { ENTRY_CLASS, OUTCOMES, OUTCOME_LABEL, TEMPLATE_LABEL, contactLog } from '../../lib/contact.ts'
+import ContactChip, { MailGlyph, PhoneGlyph } from '../contact/ContactChip.jsx'
 
 const PILL_CLASS = {
   completed: 'atlas-status-pill atlas-status-pill--completed',
@@ -205,12 +208,12 @@ function BookingSheet({ session, mode }) {
   if (mode === 'assign' && isAdmin) return <AssignForm session={session} />
   if (mode === 'reschedule') return <RescheduleForm session={session} />
   if (mode === 'cancel') return <CancelForm session={session} />
-  return <BookingDetails session={session} />
+  return <BookingDetails session={session} logCall={mode === 'call'} />
 }
 
 /* ---------- View ---------- */
 
-function BookingDetails({ session: s }) {
+function BookingDetails({ session: s, logCall = false }) {
   const homeParticipant = useParticipant(s.participantId)
   const { openBooking, startSession, completeSession, restoreSession, setNote, sessions } = useSchedule()
   const toast = useToast()
@@ -243,6 +246,8 @@ function BookingDetails({ session: s }) {
 
       <div className="atlas-sheet-body">
         <SendEmails session={s} />
+
+        <ContactSection session={s} startOpen={logCall} />
 
         {s.status === 'cancelled' && (
           <div className="atlas-sheet-alert">
@@ -415,6 +420,117 @@ function Activity({ session }) {
           </li>
         ))}
       </ol>
+    </section>
+  )
+}
+
+// Participant contact trace: every confirmation email and call, newest first, and a
+// quick way to log a call. Calling from here (tel: link) opens the outcome picker,
+// so the log is one click after hanging up. Saved on the booking for every Scheduler.
+const OUTCOME_BTN = {
+  reached: 'atlas-contact-outcome atlas-contact-outcome--reached',
+  voicemail: 'atlas-contact-outcome',
+  'no-answer': 'atlas-contact-outcome',
+  'wrong-number': 'atlas-contact-outcome atlas-contact-outcome--bad',
+}
+
+function ContactSection({ session: s, startOpen = false }) {
+  const { logContact, restoreSession, setNote } = useSchedule()
+  const { canBook } = useRole()
+  const { fullName } = useModerators()
+  const [open, setOpen] = useState(startOpen)
+  const [text, setText] = useState('')
+  const noteRef = useRef(null)
+  const log = contactLog(s)
+  const canLog = canBook && (s.status === 'booked' || s.status === 'insession')
+
+  // Opened from the right-click menu: focus the note so the picker is ready.
+  useEffect(() => {
+    if (!startOpen) return undefined
+    const raf = requestAnimationFrame(() => noteRef.current?.focus({ preventScroll: true }))
+    return () => cancelAnimationFrame(raf)
+  }, [startOpen])
+
+  if (!canBook && !log.length) return null
+
+  const save = (outcome) => {
+    const before = s
+    logContact(s.id, { kind: 'call', outcome, note: text })
+    setNote({ id: s.id, text: `call logged · ${OUTCOME_LABEL[outcome]}`, undo: () => restoreSession(before) })
+    setText('')
+    setOpen(false)
+  }
+
+  const who = (c) => c.byName || (c.by ? fullName(c.by) : '')
+  const title = (c) => {
+    if (c.kind === 'email') return c.source === 'flow' ? 'Email sent' : `${TEMPLATE_LABEL[c.template] ?? 'Booking'} email`
+    return c.source === 'checklist' ? 'Called by moderator' : `Call · ${OUTCOME_LABEL[c.outcome]}`
+  }
+
+  return (
+    <section className="atlas-contact" aria-label="Participant contact">
+      <div className="atlas-contact-head">
+        <span className="atlas-eyebrow">PARTICIPANT CONTACT</span>
+        <ContactChip session={s} />
+      </div>
+
+      {canLog && (
+        <div className="atlas-contact-actions">
+          {s.phone && (
+            <a className="atlas-contact-dial atlas-raised-sm" href={`tel:${s.phone}`} onClick={() => setOpen(true)}>
+              <PhoneGlyph /> <span className="atlas-contact-dial-number">{s.phone}</span>
+            </a>
+          )}
+          <button
+            type="button"
+            className={`atlas-btn-ghost atlas-contact-log-btn${open ? ' is-active' : ''}`}
+            aria-expanded={open}
+            aria-controls={`contact-log-${s.id}`}
+            onClick={() => setOpen((o) => !o)}
+          >
+            Log call
+          </button>
+        </div>
+      )}
+
+      {canLog && (
+        <Collapse open={open} id={`contact-log-${s.id}`}>
+          <div className="atlas-contact-picker atlas-well-sm">
+            <input
+              ref={noteRef}
+              className="atlas-input atlas-contact-note"
+              placeholder="Note (optional): asked for a call after 5 PM"
+              aria-label="Call note"
+              value={text}
+              maxLength={200}
+              onChange={(e) => setText(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Escape' && open) { e.stopPropagation(); setOpen(false) } }}
+            />
+            <div className="atlas-contact-outcomes" role="group" aria-label="How did the call go?">
+              {OUTCOMES.map((o) => (
+                <button key={o} type="button" className={OUTCOME_BTN[o]} onClick={() => save(o)}>{OUTCOME_LABEL[o]}</button>
+              ))}
+            </div>
+          </div>
+        </Collapse>
+      )}
+
+      {log.length === 0 ? (
+        <div className="atlas-contact-empty">No emails or calls yet.</div>
+      ) : (
+        <ol className="atlas-contact-log">
+          {log.map((c, i) => (
+            <li key={c.id} className={`${ENTRY_CLASS[c.kind === 'email' ? 'email' : c.outcome]} atlas-row-in`} style={{ animationDelay: `${Math.min(i, 8) * MS.rowStep}ms` }}>
+              <span className="atlas-contact-entry-icon">{c.kind === 'email' ? <MailGlyph /> : <PhoneGlyph />}</span>
+              <div className="atlas-contact-entry-text">
+                <span className="atlas-contact-entry-title">{title(c)}</span>
+                {c.note && <span className="atlas-contact-entry-note">“{c.note}”</span>}
+                <span className="atlas-contact-entry-meta">{when(c.at)}{who(c) ? ` · ${who(c)}` : ''}</span>
+              </div>
+            </li>
+          ))}
+        </ol>
+      )}
     </section>
   )
 }

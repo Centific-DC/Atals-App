@@ -3,6 +3,7 @@
 // forwards the OneForma event when there is one. These helpers turn an Atlas
 // booking into the row the flow stores, and a stored row back into a booking.
 
+import { cleanContacts, type ContactEntry } from '../contact.ts'
 import { CHECKLIST_URL, TIMEZONE } from './config.ts'
 import { bookingRef, sessionRef } from './events.ts'
 import type { AtlasQa, AtlasRecording, AtlasSession } from './events.ts'
@@ -26,6 +27,9 @@ export interface AtlasBooking extends AtlasSession {
   contactedBy?: string
   confirmedAt?: string
   confirmedBy?: string
+  contacts?: ContactEntry[]
+  participantEmailAt?: string
+  participantEmailStatus?: string
   /** Highest OneForma revision used per entity and node kind, so any browser carries on from it. */
   revisions?: Record<string, number>
   [extra: string]: unknown
@@ -41,6 +45,8 @@ interface AtlasDetail {
   short?: string
   summary?: string
   routeMilesSource?: string
+  /** Participant contact trace (emails sent, calls made); see lib/contact.ts. */
+  contacts?: ContactEntry[]
 }
 
 export const ACTION_LABEL: Record<ActionKind, string> = {
@@ -89,6 +95,7 @@ export function toBookingRow(s: AtlasBooking): BookingRow {
     ...(s.short ? { short: s.short } : {}),
     ...(s.summary ? { summary: s.summary } : {}),
     ...(s.routeMilesSource ? { routeMilesSource: s.routeMilesSource } : {}),
+    ...(s.contacts?.length ? { contacts: s.contacts } : {}),
   }
   return {
     bookingId: bookingRef(s),
@@ -172,5 +179,9 @@ export function fromBookingRow(row: Partial<BookingRow>): AtlasBooking | null {
     ...(detail.rescheduledFrom ? { rescheduledFrom: detail.rescheduledFrom } : {}),
     ...(detail.revisions ? { revisions: detail.revisions } : {}),
     ...(detail.routeMilesSource ? { routeMilesSource: detail.routeMilesSource } : {}),
+    ...(detail.contacts ? { contacts: cleanContacts(detail.contacts) } : {}),
+    // The flow's last participant email (pa-bot v4.2), when the read flow returns it.
+    ...opt('participantEmailAt', row.participantEmailAt),
+    ...opt('participantEmailStatus', row.participantEmailStatus),
   }
 }
