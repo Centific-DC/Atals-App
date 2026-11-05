@@ -102,7 +102,7 @@ export default function BookingMenu() {
       onKeyDown={onKeyDown}
       onAnimationEnd={onAnimationEnd}
     >
-      <div className="atlas-eyebrow atlas-menu-title">{session.name} · {clock12(session.start)}</div>
+      <div className="atlas-eyebrow atlas-menu-title" title={`${session.name} · ${clock12(session.start)}`}>{session.name} · <span className="whitespace-nowrap">{clock12(session.start)}</span></div>
       {items.map((it) => (
         <button
           key={it.mode}

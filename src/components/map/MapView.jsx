@@ -667,7 +667,8 @@ function useSeconds(running, startedAt) {
   return secs
 }
 
-const timeOf = (iso) => (iso ? new Date(iso).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) : '')
+// No-break space inside the time, so a wrapped status line never leaves "AM" on its own.
+const timeOf = (iso) => (iso ? new Date(iso).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }).replace(/\s/g, '\u00a0') : '')
 
 function SyncLine() {
   const { sync, fetchedAt, participants, stats, hasData, syncNow, usingSample } = useParticipants()

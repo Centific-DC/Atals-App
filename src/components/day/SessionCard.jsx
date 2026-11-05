@@ -1,3 +1,4 @@
+import { Fragment } from 'react'
 import { STATUS } from '../../data/schedule.js'
 import { needsModerator } from '../../lib/bookings.js'
 import { timeRange } from '../../lib/dates.js'
@@ -44,7 +45,15 @@ export default function SessionCard({ session, style, selected = false, onShowLi
       {live && <div className="atlas-session-glow" />}
 
       <div className="atlas-session-time">
-        <div className="atlas-session-start">{timeRange(session.start, session.end)}</div>
+        {/* Each end of the range stays whole, so a narrow column wraps at the dash, never inside "10:30 AM". */}
+        <div className="atlas-session-start">
+          {timeRange(session.start, session.end).split(' – ').map((part, i, all) => (
+            <Fragment key={i}>
+              <span className="atlas-session-start-part">{part}{i < all.length - 1 ? ' –' : ''}</span>
+              {i < all.length - 1 ? ' ' : null}
+            </Fragment>
+          ))}
+        </div>
       </div>
 
       <div className="atlas-session-info">
@@ -53,10 +62,10 @@ export default function SessionCard({ session, style, selected = false, onShowLi
           <span key={session.status} className="atlas-session-status-label atlas-status-line">{STATUS[session.status].label}</span>
           <ContactChip session={session} />
         </div>
-        <h3 className="atlas-session-client">{session.name}</h3>
+        <h3 className="atlas-session-client" title={session.name}>{session.name}</h3>
         <div className="atlas-session-meta">
           <span className="atlas-session-location">
-            <PinIcon /> <span className="atlas-session-location-text">{session.location}</span>
+            <PinIcon /> <span className="atlas-session-location-text" title={session.location}>{session.location}</span>
           </span>
         </div>
         {/* Phones: the moderator column folds in under the place. */}

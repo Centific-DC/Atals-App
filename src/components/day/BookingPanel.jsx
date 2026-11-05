@@ -193,10 +193,11 @@ export default function BookingPanel({ participant = null, onBooked = null, pres
             </span>
             <select
               className="atlas-input atlas-booking-pt-select"
+              title={`${openQueue.length} endorsed participants open to book ${rangeText(rangeMi)}`}
               value={form.participantId}
               onChange={(e) => pickParticipant(e.target.value)}
             >
-              <option value="">Pick an endorsed participant ({openQueue.length} open {rangeText(rangeMi)})</option>
+              <option value="">Pick a participant ({openQueue.length} open)</option>
               {form.participantId && !openQueue.some((p) => p.id === form.participantId) && (
                 <option value={form.participantId}>{form.name}</option>
               )}
