@@ -1,7 +1,8 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
 import * as api from '../lib/auth/api.ts'
-import { clearPersonalData, getSession, setSession } from '../lib/auth/session.ts'
+import { clearPersonalData, getSession, onSessionRejected, setSession } from '../lib/auth/session.ts'
+import { useToast } from '../motion/Toast.jsx'
 import type { AtlasUser, AuthSession } from '../lib/auth/types.ts'
 
 // Who is signed in. One URL for everyone: the role decides the landing screen.
@@ -52,6 +53,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const t = window.setTimeout(() => { clearPersonalData(); keep(null) }, Math.max(0, Math.min(ms, 2 ** 31 - 1)))
     return () => window.clearTimeout(t)
   }, [session, keep])
+
+  // The flows refused the token before it ran out here (most often a sign-in on
+  // another device or on the UAT page, which share the accounts): back to sign-in.
+  const toast = useToast() as (message: string, tone?: string) => void
+  useEffect(() => onSessionRejected(() => {
+    clearPersonalData()
+    keep(null)
+    toast('Your sign-in ended, maybe because you signed in on another device or page. Sign in again to load bookings.', 'error')
+  }), [keep, toast])
 
   const signIn = useCallback(async (email: string, password: string) => {
     keep(await api.signIn(email, password))

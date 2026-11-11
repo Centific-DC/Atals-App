@@ -4,7 +4,7 @@
 // tomorrow. The participant queue and the schedule both load from it; calls made
 // while one is running share it.
 
-import { getToken } from '../auth/session.ts'
+import { getToken, rejectSession } from '../auth/session.ts'
 import { READ_URL } from './config.ts'
 import type { BookingRow, ParticipantRow } from './types.ts'
 
@@ -28,6 +28,9 @@ export interface ReadBody {
   bookings?: Partial<BookingRow>[]
 }
 
+/** The read flow refused the session token; the app sends the person back to sign-in. */
+export class SignInRefusedError extends Error {}
+
 let inflight: Promise<ReadBody> | null = null
 
 export function fetchRead(): Promise<ReadBody> {
@@ -43,6 +46,16 @@ export function fetchRead(): Promise<ReadBody> {
         headers: { 'Content-Type': 'text/plain' },
         body: JSON.stringify({ schemaVersion: 1, token: getToken() }),
       })
+      if (res.status === 401) {
+        // The flow's own 401 is JSON with a message ("Please sign in again."): the
+        // token ran out or a newer sign-in replaced it. A 401 without one comes from
+        // Power Automate itself (the flow URL was refused), so the token is not to blame.
+        const reply = await res.json().catch(() => null) as { message?: unknown } | null
+        if (reply && typeof reply.message === 'string') {
+          rejectSession()
+          throw new SignInRefusedError(reply.message)
+        }
+      }
       if (!res.ok) throw new Error(`the read flow answered ${res.status}`)
       return await res.json() as ReadBody
     } finally {

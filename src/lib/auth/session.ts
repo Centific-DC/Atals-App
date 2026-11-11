@@ -40,3 +40,17 @@ export function clearPersonalData(): void {
   if (!READ_URL) return
   try { for (const k of PERSONAL_KEYS) window.localStorage.removeItem(k) } catch { /* storage off */ }
 }
+
+// The flows refused this token (it ran out, or a sign-in somewhere else that uses
+// the same accounts replaced it). The browser still thinks it is valid, so the
+// read flow reports it here and the sign-in state listens.
+const rejectedListeners = new Set<() => void>()
+
+export function onSessionRejected(fn: () => void): () => void {
+  rejectedListeners.add(fn)
+  return () => { rejectedListeners.delete(fn) }
+}
+
+export function rejectSession(): void {
+  for (const fn of rejectedListeners) fn()
+}

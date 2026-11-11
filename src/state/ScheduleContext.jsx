@@ -4,7 +4,7 @@ import { seedModerator } from '../data/moderators.js'
 import { fromBookingRow } from '../lib/oneforma/actions.ts'
 import { READ_URL, storageKey } from '../lib/oneforma/config.ts'
 import { QA_STAGE_LABEL } from '../lib/oneforma/events.ts'
-import { fetchRead } from '../lib/oneforma/readFlow.ts'
+import { fetchRead, SignInRefusedError } from '../lib/oneforma/readFlow.ts'
 import { OUTCOME_LABEL, STAGE_LABEL, TEMPLATE_LABEL, cleanContacts } from '../lib/contact.ts'
 import { nowIso } from '../lib/oneforma/time.ts'
 import { useToast } from '../motion/Toast.jsx'
@@ -142,7 +142,9 @@ export function ScheduleProvider({ children }) {
       }
       current.current = [...byId.values()]
       setSessions(current.current)
-    } catch {
+    } catch (err) {
+      // A refused sign-in sends the person back to sign-in, which says so itself.
+      if (err instanceof SignInRefusedError) return
       toast('Couldn’t load bookings from SharePoint. Showing the copy saved in this browser.', 'error')
     }
   }, [toast, unsavedRows])
